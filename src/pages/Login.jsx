@@ -19,7 +19,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // This talks to your Django backend
+     
       await login(username, password);
       navigate('/dashboard');
     } catch (err) {
