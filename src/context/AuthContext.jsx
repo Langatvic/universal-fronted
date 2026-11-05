@@ -1,56 +1,81 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { apiRequest } from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [token, setToken] = useState(
+    localStorage.getItem('token') || null
+  );
   const [loading, setLoading] = useState(true);
 
-  // 1. Check user on reload
+  // Verify the user's session when the application loads.
   useEffect(() => {
-    if (token) {
-      // CHANGED: /api/auth/me/
-      fetch('http://127.0.0.1:8000/api/auth/me/', {
-        headers: { 'Authorization': `Token ${token}` }
-      })
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Invalid token');
-      })
-      .then(data => setUser(data))
-      .catch(() => {
+    let active = true;
+
+    const checkAuthentication = async () => {
+      if (!token) {
+        if (active) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const data = await apiRequest('/api/auth/me/');
+
+        if (active) {
+          setUser(data);
+        }
+      } catch (error) {
         localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+
+        if (active) {
+          setToken(null);
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkAuthentication();
+
+    return () => {
+      active = false;
+    };
   }, [token]);
 
-  // 2. Login function
+  // Log in through Django.
   const login = async (username, password) => {
-    // CHANGED: /api/auth/login/
-    const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+    const data = await apiRequest('/api/auth/login/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      headers: {},
+      body: JSON.stringify({
+        username,
+        password,
+      }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || 'Login failed');
+    if (!data.token || !data.user) {
+      throw new Error('Unexpected login response from the server.');
     }
 
     localStorage.setItem('token', data.token);
-    setToken(data.token);
+
     setUser(data.user);
+    setToken(data.token);
+
     return data.user;
   };
 
+  // Log out.
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -58,7 +83,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

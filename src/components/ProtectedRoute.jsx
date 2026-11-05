@@ -1,15 +1,32 @@
+
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ allowedRoles }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
+  // Wait until authentication has been checked.
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-gray-600">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Redirect users who are not logged in.
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // If they don't have permission, redirect to the Dashboard
+  // Get the role from the active business membership.
+  const role =
+    user?.businesses?.[0]?.role ??
+    user?.role ??
+    null;
+
+  // Restrict pages according to the user's role.
+  if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
