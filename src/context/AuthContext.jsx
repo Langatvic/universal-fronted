@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiRequest } from '../services/api';
 
@@ -5,12 +6,9 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(
-    localStorage.getItem('token') || null
-  );
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
 
-  // Verify the user's session when the application loads.
   useEffect(() => {
     let active = true;
 
@@ -22,8 +20,6 @@ export const AuthProvider = ({ children }) => {
         }
         return;
       }
-
-      setLoading(true);
 
       try {
         const data = await apiRequest('/api/auth/me/');
@@ -39,9 +35,7 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
         }
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
 
@@ -52,15 +46,10 @@ export const AuthProvider = ({ children }) => {
     };
   }, [token]);
 
-  // Log in through Django.
   const login = async (username, password) => {
     const data = await apiRequest('/api/auth/login/', {
       method: 'POST',
-      headers: {},
-      body: JSON.stringify({
-        username,
-        password,
-      }),
+      body: JSON.stringify({ username, password }),
     });
 
     if (!data.token || !data.user) {
@@ -68,14 +57,16 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.setItem('token', data.token);
-
-    setUser(data.user);
     setToken(data.token);
+    setUser(data.user);
 
-    return data.user;
+    // Fetch the complete user profile, including business memberships.
+    const profile = await apiRequest('/api/auth/me/');
+    setUser(profile);
+
+    return profile;
   };
 
-  // Log out.
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -83,15 +74,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        login,
-        logout,
-        loading,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

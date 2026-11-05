@@ -18,9 +18,11 @@ const Sidebar = () => {
   const navigate = useNavigate();
 
   // Get the role from the user's first active business membership.
-  const activeBusiness = user?.businesses?.[0] ?? null;
-  const role = activeBusiness?.role ?? user?.role ?? null;
+  const activeBusiness = user?.businesses?.find(
+  (business) => business.is_active !== false
+  ) ?? user?.businesses?.[0] ?? null;
 
+  const role = activeBusiness?.role ?? user?.role ?? null;
   console.log('Logged-in user:', user);
   console.log('Active business:', activeBusiness);
   console.log('Resolved role:', role);
