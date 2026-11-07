@@ -19,9 +19,16 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-     
-      await login(username, password);
-      navigate('/dashboard');
+      // 1. Capture the profile returned by AuthContext
+      const userProfile = await login(username, password);
+      
+      // 2. Route based on the real role from the database
+      if (userProfile.role === 'cashier') {
+        navigate('/dashboard/sales');
+      } else {
+        // Super Admins and Admins go to the main dashboard
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.message || 'Invalid username or password');
     } finally {

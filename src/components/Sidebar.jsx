@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   Package,
+  CreditCard,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -70,11 +72,19 @@ const Sidebar = () => {
       path: '/dashboard/settings',
       roles: ['owner', 'admin'],
     },
+    { name: 'Payment Methods',
+       icon: CreditCard,
+        path: '/dashboard/payment-methods',
+         roles: ['super_admin'] },
+    { name: 'Audit Logs',
+       icon: ShieldAlert, 
+       path: '/dashboard/audit-logs', 
+       roles: ['super_admin'] },
   ];
 
   const menuItems = allMenuItems.filter(
-    (item) => role && item.roles.includes(role)
-  );
+  (item) => !role || item.roles.includes(role)
+);
 
   const handleLogout = () => {
     logout();
@@ -161,4 +171,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-
