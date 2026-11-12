@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Eye, EyeOff, ShieldCheck, Zap, BarChart3 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { homePathFor } from '../utils/permissions';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,9 +20,8 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-     
-      await login(username, password);
-      navigate('/dashboard');
+      const profile = await login(username, password);
+      navigate(homePathFor(profile.role), { replace: true });
     } catch (err) {
       setError(err.message || 'Invalid username or password');
     } finally {
@@ -66,7 +66,7 @@ const Login = () => {
       <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white">
         <div className="w-full max-w-md">
           <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold text-slate-800 mb-2">Admin Login</h2>
+            <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome back</h2>
             <p className="text-slate-500">Sign in to manage your business</p>
           </div>
 
@@ -84,7 +84,7 @@ const Login = () => {
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your admin username"
+                placeholder="Enter your username"
                 className="w-full px-4 py-3.5 border border-slate-300 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                 required
               />
@@ -112,11 +112,7 @@ const Login = () => {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center text-slate-600 cursor-pointer">
-                <input type="checkbox" className="mr-2 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                Remember me
-              </label>
-              <a href="#" className="text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-all">Forgot password?</a>
+              <span className="text-slate-400">Forgot your password? Ask your business owner to reset it.</span>
             </div>
 
             <button 

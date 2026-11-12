@@ -1,242 +1,236 @@
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
-} from 'recharts';
-import { Download, TrendingUp, DollarSign, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { Download, DollarSign, Receipt, TrendingUp, Package, AlertTriangle, Truck, CheckCircle2 } from 'lucide-react';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import useFetch from '../hooks/useFetch';
+import { formatDateTime, formatMoney, formatQty, toNumber } from '../utils/format';
+import { Badge, EmptyState, ErrorBanner, Field, PageHeader, SecondaryButton, Spinner, StatCard, inputClass } from '../components/ui';
+
+const isoDate = (d) => d.toISOString().slice(0, 10);
+const daysAgo = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return isoDate(d);
+};
+
+const downloadCsv = (filename, rows) => {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escape(r[h])).join(','))].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const TABS = [
+  { id: 'sales', label: 'Sales' },
+  { id: 'inventory', label: 'Inventory' },
+  { id: 'purchasing', label: 'Purchasing' },
+];
 
 const Reports = () => {
-  // 1. Mock Data for Charts
-  const salesData = [
-    { name: 'Week 1', sales: 450000, target: 400000 },
-    { name: 'Week 2', sales: 380000, target: 400000 },
-    { name: 'Week 3', sales: 520000, target: 450000 },
-    { name: 'Week 4', sales: 480000, target: 450000 },
-  ];
+  const { businessId, branchId, currency } = useAuth();
+  const [tab, setTab] = useState('sales');
+  const [startDate, setStartDate] = useState(() => daysAgo(30));
+  const [endDate, setEndDate] = useState(() => isoDate(new Date()));
 
-  const paymentMethods = [
-    { name: 'Cash', value: 45, color: '#3b82f6' }, // Blue
-    { name: 'Card', value: 35, color: '#10b981' }, // Green
-    { name: 'Mobile Money', value: 20, color: '#f59e0b' }, // Orange
-  ];
+  const params = { business_id: businessId, branch_id: branchId };
+  const dateParams = { ...params, start_date: startDate, end_date: endDate };
 
-  const topProducts = [
-    { name: 'Rice (1kg)', quantity: 160, total: 40000 },
-    { name: 'Cooking Oil', quantity: 120, total: 42000 },
-    { name: 'Sugar (1kg)', quantity: 90, total: 16200 },
-    { name: 'Milk (1L)', quantity: 60, total: 7200 },
-  ];
+  const { data, loading, error, reload } = useFetch(
+    () => api.get(`/api/reports/${tab}/`, tab === 'sales' ? dateParams : params),
+    [tab, businessId, branchId, startDate, endDate],
+    Boolean(businessId),
+  );
+
+  const money = (v) => formatMoney(v, currency);
+
+  // Group sales by day for the chart
+  const dailySales = useMemo(() => {
+    if (tab !== 'sales' || !data?.sales) return [];
+    const byDay = {};
+    data.sales.forEach((s) => {
+      const day = (s.created_at || '').slice(0, 10);
+      byDay[day] = (byDay[day] || 0) + toNumber(s.total);
+    });
+    return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, revenue]) => ({ day, revenue }));
+  }, [tab, data]);
+
+  const exportCsv = () => {
+    if (!data) return;
+    if (tab === 'sales') downloadCsv(`sales-${startDate}-to-${endDate}.csv`, data.sales);
+    if (tab === 'inventory') downloadCsv('inventory-report.csv', data.stock);
+    if (tab === 'purchasing') downloadCsv('purchasing-report.csv', data.purchases);
+  };
 
   return (
     <div className="space-y-6 pb-10">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Reports & Analytics</h1>
-          <p className="text-slate-500 text-sm mt-1">Business insights and performance</p>
+      <PageHeader title="Reports" subtitle="Live reports from your business data">
+        <SecondaryButton onClick={exportCsv} disabled={!data}>
+          <Download className="mr-2 h-4 w-4" /> Export CSV
+        </SecondaryButton>
+      </PageHeader>
+
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex space-x-1 rounded-lg bg-slate-200 p-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === t.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center space-x-3 bg-white border border-slate-200 rounded-lg p-1">
-          <span className="px-3 py-1.5 text-sm text-slate-600 font-medium">01 Oct 2025 - 31 Oct 2025</span>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center hover:bg-blue-700 transition">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </button>
-        </div>
+
+        {tab === 'sales' && (
+          <div className="flex items-end space-x-3">
+            <Field label="From"><input type="date" className={inputClass} value={startDate} max={endDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="To"><input type="date" className={inputClass} value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
+          </div>
+        )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500 font-medium mb-1">Total Sales</p>
-              <h3 className="text-2xl font-bold text-slate-800">KES 2,480,560</h3>
-              <p className="text-xs text-green-600 flex items-center mt-2 font-medium">
-                <TrendingUp className="w-3 h-3 mr-1" /> +12% vs previous period
-              </p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
-              <DollarSign className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
+      <ErrorBanner message={error} onRetry={reload} />
+      {loading && !data && <Spinner label="Loading report..." />}
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500 font-medium mb-1">Total Transactions</p>
-              <h3 className="text-2xl font-bold text-slate-800">1,248</h3>
-              <p className="text-xs text-green-600 flex items-center mt-2 font-medium">
-                <TrendingUp className="w-3 h-3 mr-1" /> +8% vs previous period
-              </p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
-              <CreditCard className="w-6 h-6" />
-            </div>
+      {/* ---------------- SALES ---------------- */}
+      {data && tab === 'sales' && (
+        <>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <StatCard title="Total Revenue" value={money(data.total_revenue)} icon={DollarSign} color="text-green-600" bg="bg-green-100" />
+            <StatCard title="Transactions" value={data.transaction_count} icon={Receipt} color="text-blue-600" bg="bg-blue-100" />
+            <StatCard title="Average Sale" value={money(data.average_sale)} icon={TrendingUp} color="text-purple-600" bg="bg-purple-100" />
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500 font-medium mb-1">Avg. Order Value</p>
-              <h3 className="text-2xl font-bold text-slate-800">KES 1,988</h3>
-              <p className="text-xs text-green-600 flex items-center mt-2 font-medium">
-                <TrendingUp className="w-3 h-3 mr-1" /> +4% vs previous period
-              </p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg text-green-600">
-              <BarChartIcon className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Section: Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Sales Trend Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">Sales Trend</h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `${value / 1000}k`} />
-                <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
-                <Bar dataKey="target" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Top Products List */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Top Products</h2>
-          <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={index} className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-800 text-sm">{product.name}</p>
-                    <p className="text-xs text-slate-500">{product.quantity} units sold</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-slate-800 text-sm">KES {product.total.toLocaleString()}</p>
-                </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-bold text-slate-800">Daily Revenue</h2>
+            {dailySales.length === 0 ? (
+              <EmptyState message="No sales in this period." />
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailySales}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v) => money(v)} />
+                    <Bar dataKey="revenue" name="Revenue" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* Bottom Section: Payments & Profit */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Payment Methods (Pie Chart) */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-800 mb-2">Payment Methods</h2>
-          <div className="h-64 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={paymentMethods}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {paymentMethods.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
+                  <th className="p-4 font-medium">Receipt</th><th className="p-4 font-medium">Date</th>
+                  <th className="p-4 font-medium">Branch</th><th className="p-4 font-medium">Cashier</th>
+                  <th className="p-4 text-right font-medium">Discount</th><th className="p-4 text-right font-medium">Tax</th>
+                  <th className="p-4 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.sales.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="p-4 font-semibold text-slate-800">{s.receipt_number}</td>
+                    <td className="p-4 text-slate-500">{formatDateTime(s.created_at)}</td>
+                    <td className="p-4 text-slate-500">{s.branch}</td>
+                    <td className="p-4 text-slate-500">{s.cashier}</td>
+                    <td className="p-4 text-right text-slate-500">{money(s.discount)}</td>
+                    <td className="p-4 text-right text-slate-500">{money(s.tax)}</td>
+                    <td className="p-4 text-right font-semibold text-slate-800">{money(s.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.sales.length === 0 && <EmptyState message="No sales in this period." />}
+          </div>
+        </>
+      )}
+
+      {/* ---------------- INVENTORY ---------------- */}
+      {data && tab === 'inventory' && (
+        <>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <StatCard title="Products" value={data.total_products} icon={Package} color="text-orange-600" bg="bg-orange-100" />
+            <StatCard title="Low Stock" value={data.low_stock_count} icon={AlertTriangle} color="text-red-600" bg="bg-red-100" />
+            <StatCard title="Stock Value (at cost)" value={money(data.stock.reduce((sum, s) => sum + toNumber(s.stock_cost_value), 0))} icon={DollarSign} color="text-green-600" bg="bg-green-100" />
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
+                  <th className="p-4 font-medium">Product</th><th className="p-4 font-medium">SKU</th><th className="p-4 font-medium">Branch</th>
+                  <th className="p-4 text-right font-medium">Qty</th><th className="p-4 text-right font-medium">Reorder</th>
+                  <th className="p-4 text-right font-medium">Unit cost</th><th className="p-4 text-right font-medium">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.stock.map((s, i) => (
+                  <tr key={`${s.product_id}-${s.branch}-${i}`} className="hover:bg-slate-50">
+                    <td className="p-4 font-semibold text-slate-800">{s.product_name}</td>
+                    <td className="p-4 text-slate-500">{s.sku}</td>
+                    <td className="p-4 text-slate-500">{s.branch}</td>
+                    <td className="p-4 text-right text-slate-700">{formatQty(s.quantity)}</td>
+                    <td className="p-4 text-right text-slate-500">{formatQty(s.reorder_level)}</td>
+                    <td className="p-4 text-right text-slate-500">{money(s.unit_cost)}</td>
+                    <td className="p-4 text-right font-semibold text-slate-800">{money(s.stock_cost_value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.stock.length === 0 && <EmptyState message="No stock records yet." />}
+          </div>
+        </>
+      )}
+
+      {/* ---------------- PURCHASING ---------------- */}
+      {data && tab === 'purchasing' && (
+        <>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <StatCard title="Total Purchases" value={data.total_purchases} icon={Truck} color="text-indigo-600" bg="bg-indigo-100" />
+            <StatCard title="Received" value={data.received_purchases} icon={CheckCircle2} color="text-green-600" bg="bg-green-100" />
+            <StatCard title="Pending" value={data.pending_purchases} icon={AlertTriangle} color="text-orange-600" bg="bg-orange-100" />
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
+                  {data.purchases[0] && Object.keys(data.purchases[0]).map((k) => (
+                    <th key={k} className="p-4 font-medium capitalize">{k.replace(/_/g, ' ')}</th>
                   ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} iconType="circle"/>
-              </PieChart>
-            </ResponsiveContainer>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.purchases.map((p, i) => (
+                  <tr key={p.id || i} className="hover:bg-slate-50">
+                    {Object.entries(p).map(([k, v]) => (
+                      <td key={k} className="p-4 text-slate-600">
+                        {k === 'status' ? <Badge tone={v === 'received' ? 'green' : 'orange'}>{v}</Badge>
+                          : /amount|total/.test(k) ? money(v)
+                          : /_at$|date/.test(k) ? formatDateTime(v)
+                          : String(v ?? '—')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.purchases.length === 0 && <EmptyState message="No purchases yet." />}
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-4 text-center">
-            <div className="bg-slate-50 p-2 rounded-lg">
-              <Banknote className="w-5 h-5 mx-auto text-blue-500 mb-1" />
-              <p className="text-xs text-slate-500 font-medium">Cash</p>
-              <p className="font-bold text-slate-800">45%</p>
-            </div>
-            <div className="bg-slate-50 p-2 rounded-lg">
-              <CreditCard className="w-5 h-5 mx-auto text-green-500 mb-1" />
-              <p className="text-xs text-slate-500 font-medium">Card</p>
-              <p className="font-bold text-slate-800">35%</p>
-            </div>
-            <div className="bg-slate-50 p-2 rounded-lg">
-              <Smartphone className="w-5 h-5 mx-auto text-orange-500 mb-1" />
-              <p className="text-xs text-slate-500 font-medium">Mobile</p>
-              <p className="font-bold text-slate-800">20%</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Profit Summary */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">Profit Summary</h2>
-          <div className="space-y-6">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-slate-500">Gross Revenue</span>
-                <span className="font-bold text-slate-800">KES 2,480,560</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-slate-500">Cost of Goods Sold (COGS)</span>
-                <span className="font-bold text-slate-800">KES 1,450,000</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-orange-400 h-2 rounded-full" style={{ width: '58%' }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-slate-500">Operating Expenses</span>
-                <span className="font-bold text-slate-800">KES 320,000</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-red-400 h-2 rounded-full" style={{ width: '15%' }}></div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-bold text-slate-800">Net Profit</span>
-                <span className="text-2xl font-bold text-green-600">KES 710,560</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1 text-right">28.6% Profit Margin</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
-
-// Simple placeholder for the BarChart Icon
-const BarChartIcon = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <line x1="12" y1="20" x2="12" y2="10"></line>
-    <line x1="18" y1="20" x2="18" y2="4"></line>
-    <line x1="6" y1="20" x2="6" y2="16"></line>
-  </svg>
-);
 
 export default Reports;

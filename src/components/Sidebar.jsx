@@ -12,69 +12,23 @@ import {
   Package,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { canAccess, roleLabel } from '../utils/permissions';
 
 const Sidebar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
   const navigate = useNavigate();
 
-  // Get the role from the user's first active business membership.
-  const activeBusiness = user?.businesses?.find(
-  (business) => business.is_active !== false
-  ) ?? user?.businesses?.[0] ?? null;
-
-  const role = activeBusiness?.role ?? user?.role ?? null;
-  console.log('Logged-in user:', user);
-  console.log('Active business:', activeBusiness);
-  console.log('Resolved role:', role);
-
   const allMenuItems = [
-    {
-      name: 'Dashboard',
-      icon: LayoutDashboard,
-      path: '/dashboard',
-      roles: ['owner', 'admin', 'manager', 'cashier', 'stock_manager', 'accountant'],
-    },
-    {
-      name: 'Sales',
-      icon: ShoppingCart,
-      path: '/dashboard/sales',
-      roles: ['owner', 'admin', 'manager', 'cashier'],
-    },
-    {
-      name: 'Inventory',
-      icon: Box,
-      path: '/dashboard/inventory',
-      roles: ['owner', 'admin', 'manager', 'stock_manager'],
-    },
-    {
-      name: 'Purchasing',
-      icon: Store,
-      path: '/dashboard/purchasing',
-      roles: ['owner', 'admin', 'manager'],
-    },
-    {
-      name: 'Reports',
-      icon: FileText,
-      path: '/dashboard/reports',
-      roles: ['owner', 'admin', 'manager', 'accountant'],
-    },
-    {
-      name: 'Employees',
-      icon: Users,
-      path: '/dashboard/employees',
-      roles: ['owner', 'admin'],
-    },
-    {
-      name: 'Settings',
-      icon: Settings,
-      path: '/dashboard/settings',
-      roles: ['owner', 'admin'],
-    },
+    { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', feature: 'dashboard' },
+    { name: 'Sales', icon: ShoppingCart, path: '/dashboard/sales', feature: 'sales' },
+    { name: 'Inventory', icon: Box, path: '/dashboard/inventory', feature: 'inventory' },
+    { name: 'Purchasing', icon: Store, path: '/dashboard/purchasing', feature: 'purchasing' },
+    { name: 'Reports', icon: FileText, path: '/dashboard/reports', feature: 'reports' },
+    { name: 'Employees', icon: Users, path: '/dashboard/employees', feature: 'employees' },
+    { name: 'Settings', icon: Settings, path: '/dashboard/settings', feature: 'settings' },
   ];
 
-  const menuItems = allMenuItems.filter(
-    (item) => role && item.roles.includes(role)
-  );
+  const menuItems = allMenuItems.filter((item) => canAccess(role, item.feature));
 
   const handleLogout = () => {
     logout();
@@ -142,7 +96,7 @@ const Sidebar = () => {
                 {user.first_name || user.username || 'User'}
               </p>
               <p className="text-xs capitalize text-slate-400">
-                {role || 'No business role'}
+                {roleLabel(role)}
               </p>
             </div>
           </div>
@@ -161,4 +115,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-

@@ -1,16 +1,38 @@
-# React + Vite
+# Universal POS – Frontend (standalone React app)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Runs on its own and talks to the Django backend only through its REST API.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev          # http://127.0.0.1:5173
+```
 
-## React Compiler
+The backend address comes from `VITE_API_URL`:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| File | Used by | Default |
+|---|---|---|
+| `.env.development` | `npm run dev` | `http://127.0.0.1:8000` |
+| `.env.production`  | `npm run build` | `https://your-backend-domain.com` (edit this) |
 
-## Expanding the Oxlint configuration
+If your backend runs on another address/port, change `VITE_API_URL` and restart `npm run dev`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Build for deployment
+
+```bash
+npm run build        # output in dist/ — upload to Netlify, Vercel, Nginx, etc.
+```
+Single-page app: configure the host to serve `index.html` for all routes
+(Netlify: `/* /index.html 200`). Then add the frontend's URL to the backend's `CORS_ALLOWED_ORIGINS`.
+
+## Sign in
+
+Use a backend user that has a Membership (business + role). Roles: owner, admin, manager, cashier,
+stock_manager, accountant — each sees only the pages its role allows.
+
+## Structure
+- `src/services/api.js` – API client (token header, errors, 401 sign-out)
+- `src/context/AuthContext.jsx` – login, active business/branch, role
+- `src/utils/permissions.js` – role → page access
+- `src/pages/*` – Dashboard, Sales (POS), Inventory, Purchasing, Reports, Employees, Settings
