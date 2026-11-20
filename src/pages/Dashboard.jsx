@@ -2,14 +2,14 @@ import { useAuth } from '../context/AuthContext';
 
 import SuperAdminDashboard from './dashboards/SuperAdminDashboard';
 import AdminDashboard from './dashboards/AdminDashboard';
-import ManagerDashboard from './dashboards/ManagerDashboard'; // <-- Imported Manager
+import ManagerDashboard from './dashboards/ManagerDashboard';
 import CashierDashboard from './dashboards/CashierDashboard';
 import StockManagerDashboard from './dashboards/StockManagerDashboard';
+import AccountantDashboard from './dashboards/AccountantDashboard';
 
 const Dashboard = () => {
   const { user, role } = useAuth();
 
-  // Normalize the role returned by Django
   const normalizedRole = String(
     role || user?.businesses?.[0]?.role || user?.role || ''
   )
@@ -17,20 +17,19 @@ const Dashboard = () => {
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
 
-  // Temporary debugging
-  // console.log('Dashboard user:', user);
-  // console.log('Original role:', role);
-  // console.log('Normalized role:', normalizedRole);
-
   switch (normalizedRole) {
     case 'super_admin':
       return <SuperAdminDashboard />;
 
+    case 'owner':
     case 'admin':
       return <AdminDashboard />;
 
-    case 'manager': // <-- Added Manager route
+    case 'manager':
       return <ManagerDashboard />;
+
+    case 'accountant':
+      return <AccountantDashboard />;
 
     case 'storekeeper':
     case 'stock_manager':

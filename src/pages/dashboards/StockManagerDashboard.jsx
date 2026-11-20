@@ -28,7 +28,7 @@ const StockManagerDashboard = () => {
     error: purchasesError, 
     reload: reloadPurchases 
   } = useFetch(
-    () => api.get('/api/purchasing/orders/', { business_id: businessId }).then(asList),
+    () => api.get('/api/purchasing/purchases/', { business_id: businessId }).then(asList),
     [businessId],
     Boolean(businessId)
   );
